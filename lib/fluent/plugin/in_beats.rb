@@ -58,10 +58,6 @@ module Fluent::Plugin
 
       super
 
-      if !@tag && !@metadata_as_tag
-        raise Fluent::ConfigError,  "'tag' or 'metadata_as_tag' parameter is required on beats input"
-      end
-
       @port += fluentd_worker_id
       @time_parser = time_parser_create(format: '%Y-%m-%dT%H:%M:%S.%N%z')
 
@@ -109,7 +105,13 @@ module Fluent::Plugin
         @thread_pool.post {
           begin
             conn.run { |map|
-              tag = @metadata_as_tag ? map['@metadata']['beat'] : @tag
+              if @metadata_as_tag
+                tag = map['@metadata']['beat']
+              elsif @tag
+                tag = @tag
+              elsif map['tags'] and map['tags'].length > 0
+                tag = map['tags'][0]
+              end
 
               if map.has_key?('message') && @parser_config
                 message = map.delete('message')
